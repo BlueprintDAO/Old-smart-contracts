@@ -1,0 +1,147 @@
+pragma solidity >=0.7.0 <0.9.0;
+
+//use epochconverter.com to track the epoch time for deadline settings
+//can track down how many campaigns have been held by creator, run this contract first then the following one
+
+contract fundingCreator {
+    CrowdFunding [] public fundings;
+    
+    function createFunding (uint inputGoal, uint inputDeadline) public {
+        CrowdFunding newfunding = new CrowdFunding (inputGoal, inputDeadline, msg.sender);
+        fundings.push(newfunding);
+    }
+}
+
+//crowdfunding contract based on ether transactions, need to modify to stablecoins USDT
+
+contract CrowdFunding {
+    
+    //define variables 
+    
+    address public admin;
+    uint public numberofContributors;
+    uint public minimumContribution;
+    uint public deadline;
+    uint public goal;
+    uint public raisedAmount;
+    
+    mapping (address => uint) public contributors;
+    
+    struct request {
+        string description;
+        address payable recipient;
+        uint value;
+        //to state the status of request 
+        bool completed;
+        uint noofvoters;
+        mapping (address => bool) voters;
+    }
+    
+    //tells us number of requests
+    mapping (uint => request) public requests;
+    
+    uint public numRequests;
+    
+    //to update frontend side subsequently
+    event ContributeEvent (address _sender, uint value);
+    event CreateRequestEvent (string _description, address _recipient, uint _value);
+    event MakePaymentEvent (address _recipient, uint _value);
+    
+    
+    //constructor (smart contract deploys with this first instance together)
+    
+    constructor (uint _goal, uint _deadline, address creator) {
+        goal = _goal * (1 ether);
+        deadline = _deadline + block.timestamp;
+        admin = creator;
+        
+        //value changes depending on campaign
+        minimumContribution = 100 wei;
+    }
+    
+    //function
+    
+    //contributors contributing to campaign
+    function contribute () public payable {
+        require (block.timestamp < deadline, "Deadline for campaign has passed!");
+        require (msg.value >= minimumContribution, "Minimum campaign amount is not met!");
+        
+        //successful requirements met = accumulation of various data next
+        //if contributors make it into the array of msg sender
+        if (contributors[msg.sender] == 0) {
+            numberofContributors ++;
+        }
+        
+        contributors[msg.sender] += msg.value;
+        raisedAmount += msg.value;
+        emit ContributeEvent (msg.sender, msg.value);
+    }
+    
+    //in the event someone outside this contract wants to send eth to owner address, receive function is activated  
+    receive () payable external {
+        contribute();
+    }
+    
+    //gets total amount raised from campaign
+    function getBalance () public view returns (uint) {
+        return address(this).balance;
+    }
+    
+    //refund only happens after deadline has passed and funding goal is not reached
+    function refund () public {
+        require (block.timestamp > deadline && raisedAmount < goal);
+        require (contributors[msg.sender] > 0);
+        
+        address payable recipient = payable (msg.sender); 
+        uint value = contributors[msg.sender];
+        recipient.transfer(value);
+        
+        //prevents refund when contributors amount = 0 after initial refund
+        contributors[msg.sender] = 0;
+    }
+    
+    modifier onlyAdmin () {
+        require (msg.sender == admin, "Only the campaign owner can use this function!");
+        _;
+    }
+    
+    //creates request to withdraw money from campaign by owners
+    function createRequest (string memory _description, address payable _recipient, uint _value) public onlyAdmin {
+        request storage newRequest = requests[numRequests];
+        numRequests ++;
+        
+        newRequest.description = _description;
+        newRequest.recipient = _recipient;
+        newRequest.value = _value;
+        newRequest.completed = false;
+        newRequest.noofvoters = 0;
+        
+        emit CreateRequestEvent (_description, _recipient, _value);
+    }  
+    
+    //ensures no contributor double voting for funds withdrawals
+    function voteRequest (uint _requestNumber) public {
+        require (contributors[msg.sender] > 0, "You must be a campaign contributor to vote!");
+        request storage thisRequest = requests[_requestNumber];
+        
+        require (thisRequest.voters[msg.sender] == false, "You have voted before");
+        //unsure if we could put an if statement here
+        thisRequest.voters[msg.sender] == true;
+        thisRequest.noofvoters ++;
+    }
+    
+    //ensures >50% contributors voting yes then requested funds can be withdrawn
+    function makePayments (uint _requestNumber) public onlyAdmin {
+        require (raisedAmount >= goal);
+        request storage thisRequest = requests[_requestNumber];
+        require (thisRequest.completed == false, "This withdrawal request has been completed!");
+        //change depending on % of votes needed
+        require (thisRequest.noofvoters > (numberofContributors/2)); 
+        
+        thisRequest.recipient.transfer(thisRequest.value);
+        thisRequest.completed = true;
+        
+        emit MakePaymentEvent (thisRequest.recipient, thisRequest.value);
+    }
+    
+}
