@@ -1,0 +1,122 @@
+pragma solidity >=0.7.0 <0.9.0;
+
+contract Ballot {
+    
+    //VARIABLES
+    
+    //to handle the votes
+    struct vote{
+        address voterAddress;
+        bool choice;
+    }
+    
+    //to handle the voters
+    struct voter{
+        string voterName;
+        //to know whether this address has voted or not
+        bool voted;
+    }
+    
+     //to keep track of numbers
+    //make the vote private as we only want to reveal vote results at the end
+    uint private countResult = 0;
+    uint public finalResult = 0;
+    uint public totalVoter = 0;
+    uint public totalVote = 0;
+    
+    address public ballotOfficialAddress;
+    string public ballotOfficialName;
+    //proposal is the aim of the vote/campaign
+    string public proposal; 
+    
+    //need mapping to refer and find the votes to each address (list)
+    mapping (uint => vote) private votes;
+    mapping (address => voter) public voterRegister;
+    
+    //like events 
+    enum State { Created, Voting, Ended }
+    State public state;
+    
+    //MODIFIERS
+    
+    //accepts any kind of conditions, requires condition to be true
+    modifier condition (bool _condition) {
+        require (_condition);
+        _;
+    }
+    
+    //requires anyone calling this to be only the ballot creator
+    modifier onlyOfficial () {
+        require (msg.sender == ballotOfficialAddress);
+        _;
+    }
+    
+    modifier inState (State _state) {
+        require (state == _state);
+        _;
+    }
+    
+    //EVENTS
+    
+    //FUNCTIONS
+    
+    //constructor will start off the entire voting system by recognising creator etc.
+    constructor (
+        string memory _ballotOfficialName,
+        string memory _proposal
+        )
+        {
+            ballotOfficialAddress = msg.sender;
+            ballotOfficialName = _ballotOfficialName;
+            proposal = _proposal;
+            
+            state = State.Created;
+        
+    }
+    
+    function addVoter (address _voterAddress, string memory _voterName) public inState(State.Created) onlyOfficial {
+        voter memory v;
+        v.voterName = _voterName;
+        v.voted = false;
+        //add voter details to registry via mapping definition
+        voterRegister[_voterAddress] = v;
+        totalVoter++;
+    }
+    
+    //contract starts with a state called 'created', this function allows creator to identify the addresses to start the vote 
+    //state has to be created for them to start voting
+    function startVote () public inState (State.Created) onlyOfficial {
+        //Voting state prevents addVoter function
+        state = State.Voting;
+    }
+    
+    //function to allow users to vote
+    function doVote (bool _choice) public inState (State.Voting) returns (bool voted) {
+        //to find whether voter address is in the registry  
+        bool found = false;
+        //check if voter has voted before, check voter name length is different from 0 
+        if (bytes(voterRegister[msg.sender].voterName).length != 0
+        && !voterRegister[msg.sender].voted){
+            voterRegister[msg.sender].voted = true;
+            vote memory v;
+            v.voterAddress = msg.sender;
+            v.choice = _choice;
+            if (_choice) {
+                //count of positive choices
+                countResult++;
+            }
+            votes[totalVote] = v; 
+            totalVote++;
+            found = true;
+        }
+        //evaluates if this person vote is valid
+        return found;
+    }
+    
+    //need a function to end the whole campaign with the state 'Ended' (based on initial enum)
+    function endVote () public inState (State.Voting) onlyOfficial {
+        state = State.Ended;
+        //set countResult as public by doing this
+        countResult = finalResult;
+    }
+}
