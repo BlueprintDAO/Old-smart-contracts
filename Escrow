@@ -1,0 +1,77 @@
+//Could probably be used in marketplace(?)
+
+pragma solidity >= 0.7.0 < 0.9.0;
+
+contract Escrow {
+    
+    //VARIABLES
+    enum State { NOT_INITIATED, AWAITING_PAYMENT, AWAITING_DELIVERY, COMPLETE }
+    
+    State public currState;
+    
+    //need a bool to know if buyer/seller is in and accepts contract
+    bool public isBuyerIn;
+    bool public isSellerIn;
+    
+    //price of asset
+    uint public price;
+    
+    address public buyer;
+    address payable public seller;
+    
+    
+    //MODIFIERS
+    modifier onlyBuyer() {
+        require (msg.sender == buyer, "Only buyer can call this function!");
+        _;
+    }
+    
+    //verifies initial state
+    modifier escrowNotStarted () {
+        require (currState == State.NOT_INITIATED);
+        _;
+    }
+    
+    //FUNCTIONS
+    constructor (address _buyer, address payable _seller, uint _price) {
+        buyer = _buyer;
+        seller = _seller;
+        price = _price * (1 ether);
+    }
+    
+    //Initiate/Called by both buyer and seller to confirm that the contract can be moved to the next stage 
+    function initContract () escrowNotStarted public {
+        if (msg.sender == buyer) {
+            isBuyerIn = true;
+        }
+        
+        if (msg.sender == seller) {
+            isSellerIn = true;
+        }
+        
+        if (isBuyerIn && isSellerIn) {
+            currState = State.AWAITING_PAYMENT;
+        }
+    }
+    
+    //for buyer to deposit his funds, only buyer can call this function. Goods are delivered offchain.
+    function deposit () onlyBuyer public payable {
+        require (currState == State.AWAITING_PAYMENT, "Already paid.");
+        require (msg.value == price, "Wrong deposit amount.");
+        currState = State.AWAITING_DELIVERY;
+    }
+    
+    //buyer will then confirm that he received the money/service/product and transfer funds to seller. Goods are delivered offchain.
+    function confirmDelivery () onlyBuyer payable public {
+        require (currState == State.AWAITING_DELIVERY, "Cannot confirm delivery.");
+        seller.transfer(price);
+        currState = State.COMPLETE;
+    }
+    
+    //if buyer didn't receive it, he will withdraw his funds. Only buyer can use this.
+    function withdraw () onlyBuyer public payable {
+        require (currState == State.AWAITING_DELIVERY, "Cannot withdraw at this stage.");
+        payable(msg.sender).transfer(price);
+        currState = State.COMPLETE;
+    }
+}
