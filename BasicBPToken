@@ -1,0 +1,39 @@
+pragma solidity >= 0.7.0 < 0.9.0;
+
+contract BasicBpToken {
+    
+    //Variable 
+    address public minter;
+    mapping (address => uint) public balances;
+    
+    
+    //Modifier 
+    
+    //Event
+    //records down all transaction info in blockchain
+    event Sent (address from, address to, uint amount);
+    
+    //Functions
+    constructor () {
+        minter = msg.sender;
+    }
+    
+    //only minter/creator can send the coins to the various recipients and recipient address amount is updated
+    function mint (address receiver, uint amount) public {
+        require (msg.sender == minter);
+        require (amount < 1e60);
+        balances [receiver] += amount;
+    }
+    
+    //allows all users to send tokens to each other, updates their account balance
+    function send (address receiver, uint amount) public {
+        require (amount <= balances [msg.sender], "Insufficient Balance.");
+        balances[msg.sender] -= amount;
+        balances[receiver] += amount;
+        emit Sent (msg.sender, receiver, amount);
+    }
+    
+}
+
+//creator can mint and send coins
+//improve by limiting number of coins minted and probably some time restriction for offloading of coins (max supply etc)
