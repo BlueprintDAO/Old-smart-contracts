@@ -1,0 +1,25 @@
+pragma solidity ^0.8.5;
+
+import 'https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/ERC20.sol';
+
+contract BPtoken is ERC20 {
+    
+    address public admin;
+    
+    //Pass name of token and symbol, mint 10M BP tokens with 18 decminal points
+    constructor () ERC20 ('Blueprint Token', 'BLP') {
+        _mint(msg.sender, 10000000 *10 **18);
+        admin = msg.sender;
+    }
+    
+    //omit this function if we don't want to mint more than 10M BP tokens in the future
+    function mint (address to, uint amount) external {
+        require (msg.sender == admin, 'Only admin can mint tokens');
+        _mint(to, amount);
+    }
+    
+    function burn (uint amount) external {
+        require (msg.sender == admin, 'Only admin can burn tokens');
+        _burn (msg.sender, amount);
+    }
+}
