@@ -1,0 +1,87 @@
+pragma solidity ^0.7.5;
+
+//backend for staking pool
+interface IDepositContract {
+    function deposit(
+        bytes calldata pubkey,
+        bytes calldata withdrawal_credentials,
+        bytes calldata signature,
+        bytes32 deposit_data_root
+    ) external payable;
+    
+
+contract StakingPool {
+    
+    //Variables
+    address public payable admin;
+    //identify each investment balances for each investor
+    mapping (address => uint) public balances;
+    //to represent end date of investment period
+    uint public end;
+    bool public finalised;
+    uint public totalInvested;
+    uint public totalChange;
+    mapping (address => bool) public changeClaimed;
+    //mapping for public key validator
+    mapping (bytes => bool) public pubKeysUsed;
+    IDepositContract public depositContract = IDepositContract (0x00000000219ab540356cBB839Cbe05303d7705Fa);
+    
+    //needed to allow investors to withdraw from staking pool 
+    event NewInvestor(
+        address investor);
+        
+    //constructor
+    constructor() {
+        admin = msg.sender;
+        //1 week for investment holdings 
+        end = block.timestamp + 7 days;
+    }
+    
+    //functions
+    //allow external ppl to invest
+    function invest() external payable {
+        require (block.timestamp < end, 'too late');
+        if (balances [msg.sender] == 0) {
+            emit NewInvestor(msg.sender);
+        }
+        uint fee = msg.sender * 1/100;
+        uint amountInvested = msg.value - fee;
+        admin.transfer(fee);
+        balances[msg.sender] += amountInvested;
+    } 
+    
+    function finalise () external {
+        require (block.timestamp >= end, 'too early');
+        require (finalised = true);
+        totalInvested = address(this).balance;
+        totalChange = address(this).balance % 32 ether;
+    }
+    
+    function getChange () external {
+        require (finalised == true, 'not finalised');
+        require (balances[msg.sender] > 0, 'not an investor');
+        require (changeClaimed [msg.sender] == false, 'change already claimed');
+        changeClaimed [msg.sender] = true;
+        uint amount = totalChange * balances [msg.sender] / totalInvested;
+        msg.sender.transfer(amount);
+    }
+    
+    function deposit(
+        bytes calldata pubkey,
+        bytes calldata withdrawal_credentials,
+        bytes calldata signature,
+        bytes32 deposit_data_root
+    ) external
+    {
+        require (finalised == true, 'too early');
+        //as only admin is going to run validator node
+        require (msg.sender == admin, 'only admin');
+        require (address(this).balance >= 32 ether);
+        require (pubKeysUsed[pubkey] == false, 'this pubkey was already used');
+        depositContract.deposit {value: 32 ether} (
+            pubkey,
+            withdrawal_credentials,
+            signature,
+            deposit_data_root);
+    } 
+}
