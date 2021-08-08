@@ -1,6 +1,9 @@
 pragma solidity ^0.8.5;
 
 import 'https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/ERC20.sol';
+import 'https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/extensions/ERC20Votes.sol';
+import 'https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/extensions/ERC20Snapshot.sol';
+import 'https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/extensions/ERC20Capped.sol';
 
 contract BPtoken is ERC20 {
     
@@ -9,6 +12,11 @@ contract BPtoken is ERC20 {
     //Pass name of token and symbol, mint 10M BP tokens with 18 decminal points
     constructor () ERC20 ('Blueprint Token', 'BLP') {
         _mint(msg.sender, 10000000 *10 **18);
+        admin = msg.sender;
+    }
+    
+    constructor totalFixedCapSupply (uint amount) {
+        _cap (msg.sender, amount);
         admin = msg.sender;
     }
     
@@ -22,4 +30,10 @@ contract BPtoken is ERC20 {
         require (msg.sender == admin, 'Only admin can burn tokens');
         _burn (msg.sender, amount);
     }
+    
+    function changeDelgatorToDelegatee (address to) external {
+        require (msg.sender == admin, 'Only admin can change delegator');
+        _delegate(msg.sender, to);
+    }
+    
 }
