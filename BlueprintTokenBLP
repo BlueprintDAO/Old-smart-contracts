@@ -4,10 +4,13 @@ import 'https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contr
 import 'https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/extensions/ERC20Votes.sol';
 import 'https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/extensions/ERC20Snapshot.sol';
 import 'https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/extensions/ERC20Capped.sol';
+import 'https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/utils/TokenTimelock.sol';
 
 contract BPtoken is ERC20 {
     
     address public admin;
+    
+    uint256 public tokenReleaseTime;
     
     //Pass name of token and symbol, mint 10M BP tokens with 18 decminal points
     constructor () ERC20 ('Blueprint Token', 'BLP') {
@@ -36,4 +39,7 @@ contract BPtoken is ERC20 {
         _delegate(msg.sender, to);
     }
     
+    function getToken (address to, uint amount) external {
+        _token (msg.sender, to);
+    }
 }
