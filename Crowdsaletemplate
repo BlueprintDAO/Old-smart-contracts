@@ -1,0 +1,111 @@
+pragma solidity ^0.8.5;
+
+import "../token/ERC20/ERC20.sol";
+import "../math/Safemath.sol";
+import "../token/ERC20/SafeERC20.sol"
+
+contract Crowdsale {
+    using SafeMath for uint256;
+    using SafeERC20 for ERC20;
+
+
+//The token being sold
+ERC20 public token;
+
+//Address where funds are collected
+    address public wallet;
+
+//How many token units a buyer gets per wei 
+//The rate is the conversion between wei and the smallest and indivisible token unit. 
+//1 wei will give you 1 unit, or 0.001 TOK.
+    uint256 public rate;
+
+//Amount of wei raised
+    uint256 public weiRaised;
+
+    event TokenPurchase (
+        address indexed purchaser,
+        address indexed beneficiary,
+        uint256 value,
+        uint256 amount);
+    
+//_rate : Number of tokens a buyer gets per wei 
+//_wallet: Address where collected funds will be forwarded to 
+//_token : Address of the token being sold
+    constructor(uint256 _rate, address _wallet, ERC20 _token) public {
+        require (_rate > 0);
+        require (_wallet != address (0));
+        require (_token != address (0));
+    
+        rate = _rate;
+        wallet = _wallet;
+        token = _token;
+}
+
+    function () external payable {
+        buyTokens(msg.sender);
+    }
+    
+    function buyTokens(address _beneficiary) public payable {
+        
+        uint256 weiAmount = msg.value;
+        _preValidatePurchase(_beneficiary, weiAmount);
+        
+        //calculate token amount to be created
+        uint256 tokens = _getTokenAmount(weiAmount);
+        
+        //update state
+        weiRaised = weiRaised.add(weiAmount);
+        
+        _processPurchase(_beneficiary, tokens);
+        emit TokenPurchase (
+            msg.sender,
+            _beneficiary,
+            weiAmount,
+            tokens
+            );
+            
+        _updatePurchasingState(_beneficiary, weiAmount);
+        
+        _forwardFunds();
+        _postValidatePurchase(_beneficiary, weiAmount);
+    }
+    
+    //validation of an incoming purchase 
+    //_beneficiary: address performing token purchase 
+    //_weiAmount: amount valued in wei involved in the purchase 
+    function _preValidatePurchase (address _beneficiary, uint256 _weiAmount) internal {
+        require(_beneficiary != address (0));
+        require(_weiAmount != 0);
+    }
+    
+    //validation of an executed purchase
+    ////same as above
+    function _postValidatePurchase (address _beneficiary, uint256 _weiAmount) internal {
+        //optional override
+    }
+    
+    function deliverTokens (address _beneficiary, uint256 _tokenAmount) internal {
+        token.safeTransfer (_beneficiary, _tokenAmount);
+    }
+    
+    function _processPurchase (address _beneficiary, uint256 _tokenAmount) internal {
+        _deliverTokens (_beneficiary, _tokenAmount);
+    }
+    
+    function _updatePurchasingState (address _beneficiary, uint256 _weiAmount) internal {
+        //optional overrride
+    }
+    
+    
+    //_weiAmount: Value in wei to be converted into tokens
+    //return = no of tokens that can be purchased with that specific _weiAmount
+    function _getTokenAmount (uint256 _weiAmount) internal view returns (uint256) {
+        return _weiAmount.mul(rate);
+    }
+    
+    function _forwardFunds () internal {
+        wallet.transfer(msg.value);
+    }
+
+}
