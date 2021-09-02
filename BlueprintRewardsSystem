@@ -1,0 +1,25 @@
+pragma solidity ^ 0.8.0;
+
+import 'https://github.com/yieldprotocol/yield-utils-v2/blob/main/contracts/token/ERC20Rewards.sol';
+
+//test version
+
+contract BLP is ERC20Rewards {
+    
+    constructor (address rewardsToken)
+    ERC20Rewards('Blueprint Reward Token', 'BLT', 18, IERC20(rewardsToken)) {
+        _mint (msg.sender,1000);
+    }
+}
+
+//The linker
+
+import 'https://github.com/yieldprotocol/yield-utils-v2/blob/main/contracts/token/ERC20.sol';
+
+contract Reward is ERC20 {
+    
+    constructor ()
+    ERC20 ('Blueprint Reward Token', 'BLT', 18) {
+        _mint(msg.sender, 1000);
+        }
+    }
